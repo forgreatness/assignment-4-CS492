@@ -31,6 +31,10 @@ The easiest way to get this click listener to work is probably to do something s
 
 In this case, the method in the main activity simply has to update the location for which the forecast is displayed.  Since the starter code with which you're provided is already hooked up to update the displayed forecast (and also to update the location displayed across the UI) whenever the location is changed in the preferences, the most straightforward way to display the forecast for the clicked location would probably be to use a [`SharedPreferences.Editor`](https://developer.android.com/reference/android/content/SharedPreferences.html#edit()) to modify the location stored in the shared preferences (making sure to [apply](https://developer.android.com/reference/android/content/SharedPreferences.Editor.html#apply()) the changes).  This approach has the added benefit that the app will always display the forecast for the last-selected location whenever the user quits and restarts the app.
 
+You can see the expected behavior of the main activity with all of the assignment's required functionality here:
+
+![Animated gif showing app behavior](weather_nav_drawer_behavior.gif)
+
 ## Extra credit
 
 The flow we implemented above works alright to allow the user to add cities to the database and select them to view their weather forecasts, but the user's experience of having to enter a city in the app's preferences in order to be able to select that city in the navigation drawer is a poor one.
