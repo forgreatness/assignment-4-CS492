@@ -5,36 +5,51 @@ import android.arch.lifecycle.ViewModelProviders;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.Uri;
+import android.provider.Settings;
 import android.support.annotation.Nullable;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.preference.PreferenceManager;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
+import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ProgressBar;
 import android.widget.TextView;
+import android.support.design.widget.NavigationView;
 
 import com.example.android.sqliteweather.data.ForecastItem;
+import com.example.android.sqliteweather.data.SavedLocation;
 import com.example.android.sqliteweather.data.Status;
 import com.example.android.sqliteweather.utils.OpenWeatherMapUtils;
 
 import java.util.List;
 
 public class MainActivity extends AppCompatActivity
-        implements ForecastAdapter.OnForecastItemClickListener, SharedPreferences.OnSharedPreferenceChangeListener {
+        implements
+        ForecastAdapter.OnForecastItemClickListener,
+        SharedPreferences.OnSharedPreferenceChangeListener,
+        SavedLocationsAdapter.OnSavedLocationClickListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
     private TextView mForecastLocationTV;
     private RecyclerView mForecastItemsRV;
+    private RecyclerView mSavedLocationsRV;
     private ProgressBar mLoadingIndicatorPB;
     private TextView mLoadingErrorMessageTV;
 
     private ForecastAdapter mForecastAdapter;
+    private SavedLocationsAdapter mSavedLocationsAdapter;
     private ForecastViewModel mForecastViewModel;
+
+    private DrawerLayout mDrawerLayout;
+    private SharedPreferences preferences;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -48,11 +63,26 @@ public class MainActivity extends AppCompatActivity
         mLoadingIndicatorPB = findViewById(R.id.pb_loading_indicator);
         mLoadingErrorMessageTV = findViewById(R.id.tv_loading_error_message);
         mForecastItemsRV = findViewById(R.id.rv_forecast_items);
+        mSavedLocationsRV = findViewById(R.id.rv_saved_location_items);
 
         mForecastAdapter = new ForecastAdapter(this);
+        mSavedLocationsAdapter = new SavedLocationsAdapter(this);
         mForecastItemsRV.setAdapter(mForecastAdapter);
         mForecastItemsRV.setLayoutManager(new LinearLayoutManager(this));
         mForecastItemsRV.setHasFixedSize(true);
+        mSavedLocationsRV.setAdapter(mSavedLocationsAdapter);
+        mSavedLocationsRV.setLayoutManager(new LinearLayoutManager(this));
+        mForecastItemsRV.setHasFixedSize(true);
+
+        mDrawerLayout = findViewById(R.id.drawer_layout);
+
+        NavigationView navigationView = findViewById(R.id.nv_nav_drawer);
+
+        ActionBar actionBar = getSupportActionBar();
+        actionBar.setDisplayHomeAsUpEnabled(true);
+        actionBar.setHomeAsUpIndicator(R.drawable.ic_nav_menu);
+
+
 
         /*
          * This version of the app code uses the new ViewModel architecture to manage data for
@@ -69,6 +99,13 @@ public class MainActivity extends AppCompatActivity
             @Override
             public void onChanged(@Nullable List<ForecastItem> forecastItems) {
                 mForecastAdapter.updateForecastItems(forecastItems);
+            }
+        });
+
+        mForecastViewModel.getAllSavedLocations().observe(this, new Observer<List<SavedLocation>>() {
+            @Override
+            public void onChanged(@Nullable List<SavedLocation> savedLocations) {
+                mSavedLocationsAdapter.updateSavedLocations(savedLocations);
             }
         });
 
@@ -96,7 +133,7 @@ public class MainActivity extends AppCompatActivity
             }
         });
 
-        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        preferences = PreferenceManager.getDefaultSharedPreferences(this);
         preferences.registerOnSharedPreferenceChangeListener(this);
         loadForecast(preferences);
     }
@@ -105,6 +142,17 @@ public class MainActivity extends AppCompatActivity
     protected void onDestroy() {
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(this);
         super.onDestroy();
+    }
+
+    @Override
+    public void onSavedLocationClick(SavedLocation savedLocation){
+        mDrawerLayout.closeDrawers();
+        String units = preferences.getString(
+                getString(R.string.pref_units_key),
+                getString(R.string.pref_units_default_value)
+        );
+        mForecastLocationTV.setText(savedLocation.name);
+        mForecastViewModel.loadForecast(savedLocation.name, units);
     }
 
     @Override
@@ -123,6 +171,9 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case android.R.id.home:
+                mDrawerLayout.openDrawer(Gravity.START);
+                return true;
             case R.id.action_location:
                 showForecastLocationInMap();
                 return true;
@@ -166,6 +217,17 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onSharedPreferenceChanged(SharedPreferences sharedPreferences, String s) {
+        String location = sharedPreferences.getString(
+                getString(R.string.pref_location_key),
+                getString(R.string.pref_location_default_value)
+        );
+
+        if(mForecastViewModel.getSavedLocationByName(location) == null){
+            SavedLocation savedLocation = new SavedLocation();
+            savedLocation.name = location;
+            mForecastViewModel.insertSavedLocation(savedLocation);
+        }
+
         loadForecast(sharedPreferences);
     }
 }
